@@ -1,0 +1,24 @@
+{
+  "name": "city-explorer-v2",
+  "version": "0.0.1",
+  "description": "re-doing the city explorer assignment from class 301",
+  "main": "app.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ibrahim-hikari/city-explorer-v2.git"
+  },
+  "author": "IBRAHIM",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/ibrahim-hikari/city-explorer-v2/issues"
+  },
+  "homepage": "https://github.com/ibrahim-hikari/city-explorer-v2#readme",
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^8.2.0",
+    "express": "^4.17.1"
+  }
+}
