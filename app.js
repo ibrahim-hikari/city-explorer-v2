@@ -16,6 +16,7 @@ app.get('/', proofOfLife);
 app.get('/location', locationHandler);
 app.get('/weather', weatherHandler);
 app.get('/events', eventsHandler);
+app.get('/yelp', yelpHandler);
 
 
 //////// Errors Routs
@@ -26,94 +27,127 @@ app.use(errorHandler);
 //////// Main Functions
 
 function proofOfLife(req, res) {
-    res.status(200).send('welcome to the world');
+  res.status(200).send('welcome to the world');
 }
 
 
 ////////// Location Functions \\\\\\\\\\
 function locationHandler(req, res) {
-    getLocation(req.query.city)
-        .then(locationData => {
-            res.status(200).json(locationData)
-        })
+  getLocation(req.query.city)
+    .then(locationData => {
+      res.status(200).json(locationData)
+    })
 }
 
 function getLocation(cityName) {
-    const url = `https://us1.locationiq.com/v1/search.php?key=${process.env.GEOCODE_API_KEY}&q=${cityName}&format=json`;
+  const url = `https://us1.locationiq.com/v1/search.php?key=${process.env.GEOCODE_API_KEY}&q=${cityName}&format=json`;
 
-    return superagent.get(url)
-        .then(data => {
-            return new Location(cityName, data.body)
-        })
+  return superagent.get(url)
+    .then(data => {
+      return new Location(cityName, data.body)
+    })
 }
 
 function Location(cityName, data) {
-    this.formatted_query = cityName;
-    this.display_name = data[0].display_name;
-    this.latitude = data[0].lat;
-    this.longitude = data[0].lon;
+  this.formatted_query = cityName;
+  this.display_name = data[0].display_name;
+  this.latitude = data[0].lat;
+  this.longitude = data[0].lon;
 }
 ////////// Weather Functions \\\\\\\\\\
 
 function weatherHandler(req, res) {
-    getWeather(req.query)
-        .then(weatherData => {
-            res.status(200).json(weatherData)
-        })
+  getWeather(req.query)
+    .then(weatherData => {
+      res.status(200).json(weatherData)
+    })
 }
 
 function getWeather(cityName) {
-    const url = `https://api.darksky.net/forecast/${process.env.DARKSKY_API_KEY}/${cityName.latitude},${cityName.longitude}`;
-    return superagent.get(url)
-        .then(data => {
-            let weatherData = data.body;
-            return weatherData.daily.data.map(oneDay => {
-                return new Weather(oneDay)
-            })
-        })
+  const url = `https://api.darksky.net/forecast/${process.env.DARKSKY_API_KEY}/${cityName.latitude},${cityName.longitude}`;
+  return superagent.get(url)
+    .then(data => {
+      let weatherData = data.body;
+      return weatherData.daily.data.map(oneDay => {
+        return new Weather(oneDay)
+      })
+    })
 }
 
 function Weather(oneDay) {
-    this.forecast = oneDay.summary;
-    this.time = new Date(oneDay.time * 1000).toDateString();
+  this.forecast = oneDay.summary;
+  this.time = new Date(oneDay.time * 1000).toDateString();
 }
 
 ////////// Event Functions \\\\\\\\\\   
 
 function eventsHandler(req, res) {
-    getEvents(req.query)
-        .then(eventsData => {
-            res.status(200).json(eventsData)
-        })
+  getEvents(req.query)
+    .then(eventsData => {
+      res.status(200).json(eventsData)
+    })
 }
 
 function getEvents(cityName) {
-    const url = `http://api.eventful.com/json/events/search?app_key=${process.env.EVENT_API_KEY}&location=${cityName.formatted_query}`
+  const url = `http://api.eventful.com/json/events/search?app_key=${process.env.EVENT_API_KEY}&location=${cityName.formatted_query}`
 
-    return superagent.get(url)
-        .then(data => {
-            let eventsData = JSON.parse(data.text);
-            return eventsData.events.event.map(eventsDay => {
-                return new Events(eventsDay)
-            })
-        })
+  return superagent.get(url)
+    .then(data => {
+      let eventsData = JSON.parse(data.text);
+      return eventsData.events.event.map(eventsDay => {
+        return new Events(eventsDay)
+      })
+    })
 }
 
 function Events(oneDay) {
-    this.link = oneDay.url;
-    this.name = oneDay.title;
-    this.event_data = oneDay.start_time;
-    this.summary = oneDay.description
+  this.link = oneDay.url;
+  this.name = oneDay.title;
+  this.event_data = oneDay.start_time;
+  this.summary = oneDay.description
 }
+
+////////// Yelp Functions \\\\\\\\\\
+
+function yelpHandler(req, res) {
+  getYelp(req.query)
+    .then(yelpData => {
+      res.status(200).json(yelpData)
+    })
+}
+
+function getYelp(cityName) {
+  const url = `https://api.yelp.com/v3/businesses/search?location=${cityName.formatted_query}`
+
+
+  return superagent.get(url)
+    .set('Authorization', `Bearer ${process.env.YELP_API_KEY}`)
+    .then(data => {
+      let yelpData = data.body.businesses;
+      return yelpData.map(oneYelp => {
+        return new Yelp(oneYelp)
+      })
+    })
+
+}
+
+function Yelp(data) {
+  this.name = data.name;
+  this.image_url = data.image_url;
+  this.price = data.price
+  this.rating = data.rating;
+  this.url = data.url;
+}
+
 
 //////// Error Functions
 
 function notFound(req, res) {
-    res.status(404).send('ops')
+  res.status(404).send('ops')
 }
 
 function errorHandler(error, req, res) {
-    res.status(500).send(error)
+  res.status(500).send(error)
 }
 
 
