@@ -17,6 +17,8 @@ app.get('/location', locationHandler);
 app.get('/weather', weatherHandler);
 app.get('/events', eventsHandler);
 app.get('/yelp', yelpHandler);
+app.get('/movies', moviesHandler);
+app.get('/trails', trailsHandler)
 
 
 //////// Errors Routs
@@ -49,8 +51,8 @@ function getLocation(cityName) {
 }
 
 function Location(cityName, data) {
-  this.formatted_query = cityName;
-  this.display_name = data[0].display_name;
+  this.search_query = cityName;
+  this.formatted_query = data[0].display_name;
   this.latitude = data[0].lat;
   this.longitude = data[0].lon;
 }
@@ -89,7 +91,7 @@ function eventsHandler(req, res) {
 }
 
 function getEvents(cityName) {
-  const url = `http://api.eventful.com/json/events/search?app_key=${process.env.EVENT_API_KEY}&location=${cityName.formatted_query}`
+  const url = `http://api.eventful.com/json/events/search?app_key=${process.env.EVENT_API_KEY}&location=${cityName.search_query}`
 
   return superagent.get(url)
     .then(data => {
@@ -117,7 +119,7 @@ function yelpHandler(req, res) {
 }
 
 function getYelp(cityName) {
-  const url = `https://api.yelp.com/v3/businesses/search?location=${cityName.formatted_query}`
+  const url = `https://api.yelp.com/v3/businesses/search?location=${cityName.search_query}`
 
 
   return superagent.get(url)
@@ -139,6 +141,73 @@ function Yelp(data) {
   this.url = data.url;
 }
 
+////////// Movies Functions \\\\\\\\\\
+function moviesHandler(req, res) {
+  getMovies(req.query)
+    .then(moviesData => {
+      res.status(200).json(moviesData)
+    })
+}
+
+function getMovies(cityName) {
+  const url = `https://api.themoviedb.org/3/search/movie?api_key=${process.env.MOVIE_API_KEY}&query=${cityName.search_query}`
+
+  return superagent.get(url)
+    .then(data => {
+      return data.body.results.map(oneMovie => {
+        return new Movies(oneMovie);
+      })
+    })
+}
+
+function Movies(data) {
+  this.title = data.title;
+  this.overview = data.overview;
+  this.average_votes = data.vote_average;
+  this.total_votes = data.vote_count;
+  if (!data.poster_path) {
+    this.image_url = `https://farm5.staticflickr.com/4363/36346283311_74018f6e7d_o.png`
+  } else {
+    this.image_url = `https://image.tmdb.org/t/p/w500${data.poster_path}`;
+  }
+  this.popularity = data.popularity;
+  this.released_on = data.release_date;
+}
+////////// Trails Functions \\\\\\\\\\
+function trailsHandler(req, res) {
+  getTrails(req.query)
+    .then(trailsData => {
+      res.status(200).json(trailsData)
+    })
+}
+
+function getTrails(cityName) {
+  const url = `https://www.hikingproject.com/data/get-trails?lat=${cityName.latitude}&lon=${cityName.longitude}&maxDistance=10&key=${process.env.TRAIL_API_KEY}`
+
+  return superagent.get(url)
+    .then(data => {
+      return data.body.trails.map(oneTrail => {
+        return new Trails(oneTrail)
+      })
+    })
+}
+
+function Trails(data) {
+  this.name = data.name
+  this.location = data.location;
+  this.length = data.length;
+  this.stars = data.stars;
+  this.star_votes = data.starVotes
+  this.summary = data.summary;
+  this.trail_url = data.url;
+  this.conditions = data.conditionDetails;
+  if (!data.conditionDetails) {
+    this.conditionDetails = 'notFound'
+  } else {
+    this.condition_date = data.conditionDetails.slice(0, 10) || ' ';
+    this.condition_time = data.conditionDetails.slice(12) || ' ';
+  }
+}
 
 //////// Error Functions
 
