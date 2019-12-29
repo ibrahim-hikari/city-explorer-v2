@@ -1,12 +1,15 @@
 `use strict`;
 
 require('dotenv').config();
+
 const express = require('express');
 const cors = require('cors');
 const superagent = require('superagent');
+const pg = require('pg')
 
 const PORT = process.env.PORT || 7070;
 const app = express();
+const client = new pg.Client(process.env.DATABASE_URL)
 
 app.use(cors());
 
@@ -26,7 +29,7 @@ app.get('/trails', trailsHandler)
 app.use(`*`, notFound);
 app.use(errorHandler);
 
-//////// Main Functions
+//////////////////// MAIN FUNCTIONS \\\\\\\\\\\\\\\\\\\\
 
 function proofOfLife(req, res) {
   res.status(200).send('welcome to the world');
@@ -35,6 +38,7 @@ function proofOfLife(req, res) {
 
 ////////// Location Functions \\\\\\\\\\
 function locationHandler(req, res) {
+
   getLocation(req.query.city)
     .then(locationData => {
       res.status(200).json(locationData)
@@ -42,16 +46,39 @@ function locationHandler(req, res) {
 }
 
 function getLocation(cityName) {
-  const url = `https://us1.locationiq.com/v1/search.php?key=${process.env.GEOCODE_API_KEY}&q=${cityName}&format=json`;
 
-  return superagent.get(url)
-    .then(data => {
-      return new Location(cityName, data.body)
+  let SQL = `SELECT * FROM locations WHERE search_query = $1`
+  let values = [cityName];
+
+  return client.query(SQL, values)
+    .then(results => {
+      if (results.rowCount) {
+        return results.rows[0]
+      } else {
+        const url = `https://us1.locationiq.com/v1/search.php?key=${process.env.GEOCODE_API_KEY}&q=${cityName}&format=json`;
+
+        return superagent.get(url)
+          .then(data => {
+            cacheLocation(cityName, data.body)
+          })
+      }
     })
 }
 
-function Location(cityName, data) {
-  this.search_query = cityName;
+function cacheLocation(cityName, data) {
+
+  const location = new Location(data);
+  let SQL = `INSERT INTO locations (search_query,formatted_query,latitude,longitude) VALUES ($1,$2,$3,$4)`
+  let values = [cityName, location.formatted_query, location.latitude, location.longitude];
+  return client.query(SQL, values)
+    .then(results => {
+      const savedLocation = results.rows[0];
+      return savedLocation
+    })
+}
+
+
+function Location(data) {
   this.formatted_query = data[0].display_name;
   this.latitude = data[0].lat;
   this.longitude = data[0].lon;
@@ -109,38 +136,6 @@ function Events(oneDay) {
   this.summary = oneDay.description
 }
 
-////////// Yelp Functions \\\\\\\\\\
-
-function yelpHandler(req, res) {
-  getYelp(req.query)
-    .then(yelpData => {
-      res.status(200).json(yelpData)
-    })
-}
-
-function getYelp(cityName) {
-  const url = `https://api.yelp.com/v3/businesses/search?location=${cityName.search_query}`
-
-
-  return superagent.get(url)
-    .set('Authorization', `Bearer ${process.env.YELP_API_KEY}`)
-    .then(data => {
-      let yelpData = data.body.businesses;
-      return yelpData.map(oneYelp => {
-        return new Yelp(oneYelp)
-      })
-    })
-
-}
-
-function Yelp(data) {
-  this.name = data.name;
-  this.image_url = data.image_url;
-  this.price = data.price
-  this.rating = data.rating;
-  this.url = data.url;
-}
-
 ////////// Movies Functions \\\\\\\\\\
 function moviesHandler(req, res) {
   getMovies(req.query)
@@ -173,6 +168,39 @@ function Movies(data) {
   this.popularity = data.popularity;
   this.released_on = data.release_date;
 }
+
+////////// Yelp Functions \\\\\\\\\\
+
+function yelpHandler(req, res) {
+  getYelp(req.query)
+    .then(yelpData => {
+      res.status(200).json(yelpData)
+    })
+}
+
+function getYelp(cityName) {
+  const url = `https://api.yelp.com/v3/businesses/search?location=${cityName.search_query}`
+
+
+  return superagent.get(url)
+    .set('Authorization', `Bearer ${process.env.YELP_API_KEY}`)
+    .then(data => {
+      let yelpData = data.body.businesses;
+      return yelpData.map(oneYelp => {
+        return new Yelp(oneYelp)
+      })
+    })
+
+}
+
+function Yelp(data) {
+  this.name = data.name;
+  this.image_url = data.image_url;
+  this.price = data.price
+  this.rating = data.rating;
+  this.url = data.url;
+}
+
 ////////// Trails Functions \\\\\\\\\\
 function trailsHandler(req, res) {
   getTrails(req.query)
@@ -204,8 +232,8 @@ function Trails(data) {
   if (!data.conditionDetails) {
     this.conditionDetails = 'notFound'
   } else {
-    this.condition_date = data.conditionDetails.slice(0, 10) || ' ';
-    this.condition_time = data.conditionDetails.slice(12) || ' ';
+    this.condition_date = data.conditionDetails.slice(0, 10);
+    this.condition_time = data.conditionDetails.slice(12);
   }
 }
 
@@ -220,122 +248,7 @@ function errorHandler(error, req, res) {
 }
 
 
-
-app.listen(PORT, () => console.log(`Welcome Aboard on ${PORT}`));
-
-
-
-
-//////////////////////////////////////////////////
-
-/*
-'use strict';
-
-let __API_URL__;
-let GEOCODE_API_KEY;
-
-function setEventListeners() {
-  $('#url-form').on('submit', function (event) {
-    event.preventDefault();
-    __API_URL__ = $('#back-end-url').val();
-    $('#url-form').addClass('hide');
-    manageForms();
-  });
-
-  $('#geocode-form').on('submit', function (event) {
-    event.preventDefault();
-    GEOCODE_API_KEY = $('#api-key').val();
-    storeKey(GEOCODE_API_KEY);
-    $('#geocode-form').addClass('hide');
-    manageForms();
-  });
-
-  $('#search-form').on('submit', fetchCityData);
-}
-
-function getKey() {
-  if (localStorage.getItem('geocode')) return JSON.parse(localStorage.getItem('geocode'));
-}
-
-function storeKey(key) {
-  localStorage.setItem('geocode', JSON.stringify(key));
-}
-
-function manageForms() {
-  let urlState = $('#url-form').hasClass('hide');
-  let keyState = $('#geocode-form').hasClass('hide');
-
-  if (urlState && keyState) { $('#search-form').removeClass('hide'); }
-}
-
-function fetchCityData(event) {
-  event.preventDefault();
-
-  // start off by cleaning any previous errors
-  compileTemplate([], 'error-container', 'error-template');
-
-  let searchQuery = $('#input-search').val().toLowerCase();
-
-  $.ajax({
-    url: `${__API_URL__}/location`,
-    method: 'GET',
-    data: { city: searchQuery },
-  })
-    .then(location => {
-      displayMap(location);
-      getResource('weather', location);
-      getResource('movies', location);
-      getResource('yelp', location);
-      getResource('trails', location);
-      getResource('events', location);
-    })
-    .catch(error => {
-      compileTemplate([error], 'error-container', 'error-template');
-      $('#map').addClass('hide');
-      $('section, div').addClass('hide');
-    });
-}
-
-function displayMap(location) {
-  $('.query-placeholder').text(`Here are the results for ${location.formatted_query}`);
-
-  $('#map').removeClass('hide');
-  $('section, div').removeClass('hide');
-
-  let lat = location.latitude;
-  let lon = location.longitude;
-  let width = 800;
-  let height = 400;
-
-  let mapURL = `https://maps.locationiq.com/v2/staticmap?key=${GEOCODE_API_KEY}&center=${lat},${lon}&size=${width}x${height}&zoom=12`;
-
-  $('#map').attr('src', mapURL);
-}
-
-function getResource(resource, location) {
-  $.get(`${__API_URL__}/${resource}`, location)
-    .then(result => {
-      console.log('ok');
-      compileTemplate(result, `${resource}-results`, `${resource}-results-template`);
-    })
-    .catch(error => {
-      compileTemplate([error], 'error-container', 'error-template');
-    });
-}
-
-function compileTemplate(input, sectionClass, templateId) {
-  $(`.${sectionClass}`).empty();
-
-  let template = Handlebars.compile($(`#${templateId}`).text());
-
-  input.forEach(element => {
-    $(`.${sectionClass}`).append(template(element));
-  });
-}
-
-$(() => {
-  setEventListeners();
-  GEOCODE_API_KEY = getKey();
-  if (GEOCODE_API_KEY) { $('#geocode-form').addClass('hide'); }
-});
-*/
+client.connect()
+  .then(
+    app.listen(PORT, () => console.log(`Welcome Aboard on ${PORT}`))
+  );
