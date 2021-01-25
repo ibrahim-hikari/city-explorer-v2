@@ -7,13 +7,13 @@ const cors = require('cors');
 
 
 ////////////////////////////////////// Dependencies \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
-const client = require('./modules/client.js')
-const location = require('./modules/location.js')
-const weather = require('./modules/weather.js')
-const events = require('./modules/events.js')
-const movies = require('./modules/movies.js')
-const yelp = require('./modules/yelp.js')
-const trails = require('./modules/trails.js')
+const client = require('./modules/client.js');
+const location = require('./modules/location.js');
+const weather = require('./modules/weather.js');
+const events = require('./modules/events.js');
+const movies = require('./modules/movies.js');
+const yelp = require('./modules/yelp.js');
+const trails = require('./modules/trails.js');
 ///////////////////////////////////////////////////////////////////////////////////////////
 
 
@@ -132,4 +132,5 @@ function errorHandler(error, req, res) {
 client.connect()
   .then(
     app.listen(PORT, () => console.log(`Welcome Aboard on ${PORT}`))
-  );
+  )
+  .catch(e => console.error(e.message))
